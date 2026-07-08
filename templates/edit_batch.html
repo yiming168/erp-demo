@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% set active_page = "inventory" %}
+
+{% block title %}Edit Batch - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>📦 Edit Inventory Batch</h4>
+        <a href="{{ url_for('inventory') }}" class="btn btn-secondary">Back to Inventory List</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('edit_batch', batch_id=batch.batch_id) }}" method="POST">
+                <h5>1. Production Batch Information</h5>
+                <hr>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="product_id" class="form-label">Product *</label>
+                        <select class="form-select" id="product_id" name="product_id" required>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}" {% if p.product_id == batch.product_id %}selected{% endif %}
+                                    data-potency-unit="{{ p.potency_unit or 'CFU/g' }}">
+                                {{ p.chinese_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="batch_no" class="form-label">Batch No. *</label>
+                        <input type="text" class="form-control" id="batch_no" name="batch_no"
+                               value="{{ batch.batch_no }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="production_date" class="form-label">Production Date</label>
+                        <input type="date" class="form-control" id="production_date" name="production_date"
+                               value="{{ batch.production_date.strftime('%Y-%m-%d') if batch.production_date else '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="expiry_date" class="form-label">Expiry Date</label>
+                        <input type="date" class="form-control" id="expiry_date" name="expiry_date"
+                               value="{{ batch.expiry_date.strftime('%Y-%m-%d') if batch.expiry_date else '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="quantity_total" class="form-label">Quantity Produced (kg) *</label>
+                        <input type="number" step="0.001" min="0.001" class="form-control"
+                               id="quantity_total" name="quantity_total"
+                               value="{{ batch.quantity_total }}" required>
+                        <div class="form-text">
+                            Currently available: <strong>{{ "%.3f"|format(batch.quantity_available|float) }} kg</strong>
+                            (available quantity is auto-adjusted by the difference when the produced quantity is changed)
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="actual_potency" class="form-label">Measured Potency</label>
+                        <div class="input-group">
+                            <input type="number" step="0.0001" class="form-control"
+                                   id="actual_potency" name="actual_potency"
+                                   value="{{ batch.actual_potency if batch.actual_potency is not none else '' }}">
+                            <select class="form-select" id="potency_unit" name="potency_unit" style="max-width:110px">
+                                {% for u in potency_units %}
+                                <option value="{{ u }}" {% if u == batch.potency_unit %}selected{% endif %}>{{ u }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="available" {% if batch.status == 'available' %}selected{% endif %}>Available</option>
+                            <option value="depleted" {% if batch.status == 'depleted' %}selected{% endif %}>Depleted</option>
+                            <option value="rejected" {% if batch.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="2">{{ batch.notes or '' }}</textarea>
+                    </div>
+                </div>
+
+                <h5 class="mt-4">2. Raw Material Consumption</h5>
+                <hr>
+                <p class="text-muted small">
+                    Records which raw-material batches were consumed for this production run. Changing the quantity or switching batches automatically returns stock to the old batch and re-deducts from the new one.
+                </p>
+                <div id="consumption-rows">
+                    {% for c in consumptions %}
+                    <div class="row g-3 mb-3 consumption-row">
+                        <div class="col-md-6">
+                            <label class="form-label">Raw Material Batch</label>
+                            <select class="form-select" name="raw_batch_id">
+                                <option value="">Select a raw-material batch...</option>
+                                {% for rtype, rbatches in raw_batches | groupby('component_type') %}
+                                <optgroup label="{{ rtype }}">
+                                    {% for b in rbatches %}
+                                    <option value="{{ b.batch_id }}" {% if b.batch_id == c.raw_batch_id %}selected{% endif %}>
+                                        [{{ b.component_name }}] {{ b.batch_no }} — {{ "%.3f"|format(b.quantity_available|float) }}{{ b.unit or 'kg' }} remaining
+                                        {%- if b.actual_potency %}, potency {{ b.actual_potency }}{{ b.potency_unit }}{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Quantity Consumed</label>
+                            <input type="number" step="0.001" class="form-control" name="quantity_consumed" value="{{ c.quantity_consumed }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Notes</label>
+                            <input type="text" class="form-control" name="consumption_notes" value="{{ c.notes or '' }}">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeConsumptionRow(this)">Remove</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-primary" id="add-consumption-row">＋ Add Raw Material Consumption</button>
+
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Changes</button>
+                <a href="{{ url_for('inventory') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+<template id="consumption-row-template">
+    <div class="row g-3 mb-3 consumption-row">
+        <div class="col-md-6">
+            <label class="form-label">Raw Material Batch</label>
+            <select class="form-select" name="raw_batch_id">
+                <option value="">Select a raw-material batch...</option>
+                {% for rtype, rbatches in raw_batches | groupby('component_type') %}
+                <optgroup label="{{ rtype }}">
+                    {% for b in rbatches %}
+                    <option value="{{ b.batch_id }}">
+                        [{{ b.component_name }}] {{ b.batch_no }} — {{ "%.3f"|format(b.quantity_available|float) }}{{ b.unit or 'kg' }} remaining
+                        {%- if b.actual_potency %}, potency {{ b.actual_potency }}{{ b.potency_unit }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Quantity Consumed</label>
+            <input type="number" step="0.001" class="form-control" name="quantity_consumed">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Notes</label>
+            <input type="text" class="form-control" name="consumption_notes">
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeConsumptionRow(this)">Remove</button>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const consumptionRowsContainer = document.getElementById('consumption-rows');
+const consumptionRowTemplate = document.getElementById('consumption-row-template');
+
+document.getElementById('add-consumption-row').addEventListener('click', function() {
+    const clone = consumptionRowTemplate.content.cloneNode(true);
+    consumptionRowsContainer.appendChild(clone);
+});
+
+function removeConsumptionRow(button) {
+    button.closest('.consumption-row').remove();
+}
+</script>
+{% endblock %}

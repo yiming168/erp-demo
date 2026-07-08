@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% set active_page = "products" %}
+
+{% block title %}Product Formula - {{ product.chinese_name }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:860px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Formula: {{ product.chinese_name }}</h4>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('new_raw_material') }}" class="btn btn-outline-primary">+ New Component</a>
+            <a href="{{ url_for('products') }}" class="btn btn-secondary">Back to Products</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('product_formula', product_id=product.product_id) }}" method="POST">
+                <h6 class="mb-1">Formula Details</h6>
+                <p class="text-muted small mb-3">Target content of each active ingredient per gram of finished product. Use billion CFU/g for strains (1 billion = 10^9), U/g for enzymes, and g/kg or % for excipients. The actual dosing amount is converted from the batch potency at production time.</p>
+
+                <div id="formula-items">
+                    {% for fi in items %}
+                    <div class="formula-row row g-2 mb-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Component / Active Ingredient</label>
+                            <select class="form-select material-sel" name="material_id">
+                                <option value="" disabled>Select component...</option>
+                                {% for m in materials %}
+                                <option value="{{ m.material_id }}"
+                                        data-punit="{{ m.potency_unit }}"
+                                        data-type="{{ m.material_type }}"
+                                        {% if m.material_id == fi.material_id %}selected{% endif %}>
+                                    [{{ m.material_type }}] {{ m.material_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Target Content</label>
+                            <input type="number" step="any" class="form-control" name="target_amount"
+                                   value="{{ fi.target_amount }}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Unit</label>
+                            <input type="text" class="form-control unit-field" name="fi_unit"
+                                   value="{{ fi.unit }}" placeholder="billion CFU/g">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Notes</label>
+                            <input type="text" class="form-control" name="fi_notes" value="{{ fi.notes or '' }}">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end pb-1">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-row">×</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% if not items %}
+                    <div class="formula-row row g-2 mb-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Component / Active Ingredient</label>
+                            <select class="form-select material-sel" name="material_id">
+                                <option value="" disabled selected>Select component...</option>
+                                {% for m in materials %}
+                                <option value="{{ m.material_id }}"
+                                        data-punit="{{ m.potency_unit }}"
+                                        data-type="{{ m.material_type }}">
+                                    [{{ m.material_type }}] {{ m.material_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Target Content</label>
+                            <input type="number" step="any" class="form-control" name="target_amount">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Unit</label>
+                            <input type="text" class="form-control unit-field" name="fi_unit"
+                                   value="billion CFU/g" placeholder="billion CFU/g">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Notes</label>
+                            <input type="text" class="form-control" name="fi_notes">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end pb-1">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-row">×</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-1 mb-4" id="add-row">
+                    + Add Component
+                </button>
+
+                <hr class="my-3">
+                <div class="mb-3">
+                    <label class="form-label">Formula Notes</label>
+                    <textarea class="form-control" name="formula_notes" rows="2">{{ formula.notes if formula else '' }}</textarea>
+                </div>
+
+                <button class="btn btn-success" type="submit">Save Formula</button>
+                <a href="{{ url_for('products') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const materialsJson = {{ materials | tojson }};
+
+const TYPE_UNIT = {
+    'Strain':        'billion CFU/g',
+    'Enzyme':        'U/g',
+    'Excipient':     'g/kg',
+    'Functional':    '%',
+    'Blend':         'billion CFU/g',
+    'Uncategorized': 'billion CFU/g',
+    'Other':         '%',
+};
+
+function getDefaultUnit(m) {
+    return m.potency_unit || TYPE_UNIT[m.material_type] || '%';
+}
+
+function buildRowHtml() {
+    let opts = '<option value="" disabled selected>Select component...</option>';
+    materialsJson.forEach(m => {
+        opts += `<option value="${m.material_id}" data-punit="${m.potency_unit}" data-type="${m.material_type}">[${m.material_type}] ${m.material_name}</option>`;
+    });
+    return `
+    <div class="formula-row row g-2 mb-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Component / Active Ingredient</label>
+            <select class="form-select material-sel" name="material_id">${opts}</select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Target Content</label>
+            <input type="number" step="any" class="form-control" name="target_amount">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Unit</label>
+            <input type="text" class="form-control unit-field" name="fi_unit" value="billion CFU/g" placeholder="billion CFU/g">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Notes</label>
+            <input type="text" class="form-control" name="fi_notes">
+        </div>
+        <div class="col-md-1 d-flex align-items-end pb-1">
+            <button type="button" class="btn btn-outline-danger btn-sm remove-row">×</button>
+        </div>
+    </div>`;
+}
+
+document.getElementById('add-row').addEventListener('click', function() {
+    document.getElementById('formula-items').insertAdjacentHTML('beforeend', buildRowHtml());
+    bindAll();
+});
+
+function bindRemove() {
+    document.querySelectorAll('.remove-row').forEach(btn => {
+        btn.onclick = function() {
+            if (document.querySelectorAll('.formula-row').length > 1)
+                btn.closest('.formula-row').remove();
+        };
+    });
+}
+
+function bindUnitSync() {
+    document.querySelectorAll('.material-sel').forEach(sel => {
+        sel.addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            const mtype = opt.dataset.type;
+            const punit = opt.dataset.punit;
+            const unitField = this.closest('.formula-row').querySelector('.unit-field');
+            unitField.value = punit || TYPE_UNIT[mtype] || '%';
+        });
+    });
+}
+
+function bindAll() { bindRemove(); bindUnitSync(); }
+bindAll();
+</script>
+{% endblock %}

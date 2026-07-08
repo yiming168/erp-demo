@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% set active_page = "procurement" %}
+
+{% block title %}New Supplier Invoice - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h4 class="mb-3">New Supplier Invoice</h4>
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('new_purchase_invoice') }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="po_id" class="form-label">Linked Purchase Order *</label>
+                        <select class="form-select" id="po_id" name="po_id" required>
+                            <option value="">Select a purchase order...</option>
+                            {% for po in purchase_orders %}
+                            <option value="{{ po.po_id }}" data-amount="{{ po.outstanding_amount if po.outstanding_amount is not none else po.total_amount or 0 }}">
+                                {{ po.po_no }} - {{ po.supplier_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="invoice_date" class="form-label">Invoice Date *</label>
+                        <input type="date" class="form-control" id="invoice_date" name="invoice_date" value="{{ today }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="invoice_amount" class="form-label">Invoice Amount *</label>
+                        <input type="number" step="0.01" class="form-control" id="invoice_amount" name="invoice_amount" required>
+                        <div class="form-text">Selecting a purchase order will auto-fill the outstanding invoice amount; you can also edit it manually.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="invoice_no" class="form-label">Invoice No.</label>
+                        <input type="text" class="form-control" id="invoice_no" name="invoice_no">
+                    </div>
+                    <div class="col-12">
+                        <label for="remark" class="form-label">Notes</label>
+                        <textarea class="form-control" id="remark" name="remark" rows="3"></textarea>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Invoice Record</button>
+                <a href="{{ url_for('purchase_invoices', company_id=selected_company_id) }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const poSelect = document.getElementById('po_id');
+    const invoiceAmountInput = document.getElementById('invoice_amount');
+    poSelect.addEventListener('change', () => {
+        const option = poSelect.options[poSelect.selectedIndex];
+        const amount = option ? option.dataset.amount : '';
+        if (amount !== undefined && amount !== '') {
+            invoiceAmountInput.value = Number(amount).toFixed(2);
+        }
+    });
+</script>
+{% endblock %}

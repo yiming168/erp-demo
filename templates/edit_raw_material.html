@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set active_page = "raw_materials" %}
+
+{% block title %}Edit Component - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:640px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Edit Component</h4>
+        <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Back</a>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('edit_raw_material', material_id=mat.material_id) }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Component Name *</label>
+                        <input type="text" class="form-control" name="material_name" value="{{ mat.material_name }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Type *</label>
+                        <select class="form-select" name="material_type">
+                            {% for t in ['Strain','Enzyme','Excipient','Functional','Blend','Other'] %}
+                            <option value="{{ t }}" {% if mat.material_type == t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Default Unit</label>
+                        <input type="text" class="form-control" name="default_unit" value="{{ mat.default_unit }}">
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Changes</button>
+                <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

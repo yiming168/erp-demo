@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% set active_page = "dashboard" %}
+
+{% block title %}Edit Order - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>📝 Edit Order</h4>
+            <a href="{{ url_for('dashboard', company_id=contract.company_id) }}" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ url_for('edit_order', contract_id=contract.contract_id) }}" method="POST">
+
+                    <h5>1. Contract Details</h5>
+                    <hr>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="company_id" class="form-label">Selling / Invoicing Entity</label>
+                            <select class="form-select" id="company_id" name="company_id" required>
+                                {% for company in companies %}
+                                <option value="{{ company.company_id }}" {% if company.company_id == contract.company_id %}selected{% endif %}>{{ company.short_name or company.company_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="source_contract_id" class="form-label">Upstream Supply Contract</label>
+                            <select class="form-select" id="source_contract_id" name="source_contract_id">
+                                <option value="">No upstream link</option>
+                                {% for source_contract in source_contracts %}
+                                <option value="{{ source_contract.contract_id }}" {% if source_contract.contract_id == contract.source_contract_id %}selected{% endif %}>
+                                    #{{ source_contract.contract_id }} - {{ source_contract.ledger_short_name or '-' }} / {{ source_contract.company_name }} / {{ source_contract.contract_no or 'No Contract No.' }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="client_id" class="form-label">Select Client</label>
+                            <select class="form-select" id="client_id" name="client_id" required>
+                                {% for client in clients %}
+                                <option value="{{ client.client_id }}" {% if client.client_id == contract.client_id %}selected{% endif %}>{{ client.company_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="contact_id" class="form-label">Select Contact</label>
+                            <select class="form-select" id="contact_id" name="contact_id">
+                                {% for contact_item in contacts %}
+                                <option value="{{ contact_item.contact_id }}" {% if contact_item.contact_id == contract.contact_id %}selected{% endif %}>{{ contact_item.contact_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="contract_no" class="form-label">Contract No.</label>
+                            <input type="text" class="form-control" id="contract_no" name="contract_no" value="{{ contract.contract_no or '' }}" placeholder="e.g. HT-2025-001 (optional)">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="order_date" class="form-label">Order Date</label>
+                            <input type="date" class="form-control" id="order_date" name="order_date" value="{{ contract.order_date.strftime('%Y-%m-%d') if contract.order_date else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="delivery_deadline" class="form-label">Delivery Deadline</label>
+                            <input type="date" class="form-control" id="delivery_deadline" name="delivery_deadline" value="{{ contract.delivery_deadline.strftime('%Y-%m-%d') if contract.delivery_deadline else '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label for="shipping_address" class="form-label">Shipping Address</label>
+                            <textarea class="form-control" id="shipping_address" name="shipping_address" rows="2">{{ contract.shipping_address or '' }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="payment_method" class="form-label">Payment Method</label>
+                            <input type="text" class="form-control" id="payment_method" name="payment_method" value="{{ contract.payment_method or '' }}" placeholder="e.g. Bank Transfer">
+                        </div>
+                        <div class="col-12">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Record any other outstanding matters">{{ contract.notes or '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4">2. Order Line Items</h5>
+                    <hr>
+                    <div id="order-items">
+                        {% for item in items %}
+                        <div class="row g-3 mb-3 order-item">
+                            <input type="hidden" name="item_id" value="{{ item.item_id }}">
+                            <div class="col-md-3">
+                                <label class="form-label">Product</label>
+                                <select class="form-select" name="product_id" required>
+                                    {% for product in products %}
+                                    <option value="{{ product.product_id }}" data-standard-cfu="{{ product.standard_cfu if product.standard_cfu is not none else '' }}" {% if product.product_id == item.product_id %}selected{% endif %}>{{ product.chinese_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Quantity (kg)</label>
+                                <input type="number" step="0.01" class="form-control" name="quantity" value="{{ item.quantity }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Unit Price ($/kg)</label>
+                                <input type="number" step="0.01" class="form-control" name="unit_price" value="{{ item.unit_price }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Packaging Spec</label>
+                                <input type="text" class="form-control" name="packaging_spec" value="{{ item.packaging_spec or '' }}" list="packaging_options_{{ loop.index }}" placeholder="Default 1kg/bag">
+                                <datalist id="packaging_options_{{ loop.index }}">
+                                    <option value="1kg/bag">
+                                    <option value="5kg/bag">
+                                    <option value="25kg/bag">
+                                    <option value="20kg/drum">
+                                    <option value="25kg/drum">
+                                </datalist>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">B_CFU (billion/g)</label>
+                                <input type="number" step="0.01" class="form-control" name="agreed_cfu"
+                                    value="{{ item.agreed_cfu or '' }}"
+                                    list="cfu_options_{{ loop.index }}"
+                                    placeholder="20 means 20 billion/g">
+                                <datalist id="cfu_options_{{ loop.index }}">
+                                    <option value="5">
+                                    <option value="10">
+                                    <option value="20">
+                                    <option value="50">
+                                    <option value="100">
+                                    <option value="200">
+                                    <option value="500">
+                                    <option value="1000">
+                                </datalist>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">Remove</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-primary" id="add-item">+ Add Product</button>
+
+
+                    <hr class="mt-4">
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="item-template" style="display: none;">
+        <div class="row g-3 mb-3 order-item">
+            <input type="hidden" name="item_id" value="">
+            <div class="col-md-3">
+                <label class="form-label">Product</label>
+                <select class="form-select" name="product_id" required>
+                    <option value="" disabled selected>Select a product...</option>
+                    {% for product in products %}
+                    <option value="{{ product.product_id }}" data-standard-cfu="{{ product.standard_cfu if product.standard_cfu is not none else '' }}">{{ product.chinese_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Quantity (kg)</label>
+                <input type="number" step="0.01" class="form-control" name="quantity" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Unit Price ($/kg)</label>
+                <input type="number" step="0.01" class="form-control" name="unit_price" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Packaging Spec</label>
+                <input type="text" class="form-control" name="packaging_spec" list="packaging_options" placeholder="Default 1kg/bag">
+                <datalist id="packaging_options">
+                    <option value="1kg/bag">
+                    <option value="5kg/bag">
+                    <option value="25kg/bag">
+                    <option value="20kg/drum">
+                    <option value="25kg/drum">
+                </datalist>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">B_CFU (billion CFU/g)</label>
+                <input type="number" step="0.01" class="form-control" name="agreed_cfu"
+                    list="cfu_options"
+                    placeholder="Select or enter">
+                <datalist id="cfu_options">
+                    <option value="5">
+                    <option value="10">
+                    <option value="20">
+                    <option value="50">
+                    <option value="100">
+                    <option value="200">
+                    <option value="500">
+                    <option value="1000">
+                </datalist>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">Remove</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+        let itemCounter = document.querySelectorAll('.order-item').length;
+        document.getElementById('add-item').addEventListener('click', function () {
+            const itemContainer = document.getElementById('order-items');
+            const template = document.getElementById('item-template');
+            const newItem = template.firstElementChild.cloneNode(true);
+
+            itemCounter++;
+            const cfuInput = newItem.querySelector('input[name="agreed_cfu"]');
+            const cfuDatalist = newItem.querySelector('#cfu_options');
+            if (cfuInput && cfuDatalist) {
+                const newDatalistId = 'cfu_options_' + itemCounter;
+                cfuDatalist.id = newDatalistId;
+                cfuInput.setAttribute('list', newDatalistId);
+            }
+
+            const packagingInput = newItem.querySelector('input[name="packaging_spec"]');
+            const packagingDatalist = newItem.querySelector('#packaging_options');
+            if (packagingInput && packagingDatalist) {
+                const newPackagingDatalistId = 'packaging_options_' + itemCounter;
+                packagingDatalist.id = newPackagingDatalistId;
+                packagingInput.setAttribute('list', newPackagingDatalistId);
+            }
+
+            itemContainer.appendChild(newItem);
+            bindProductDefaultCfu(newItem);
+        });
+
+        function removeItem(button) {
+            if (confirm('Are you sure you want to remove this product?') && confirm('Please confirm deletion again, this action cannot be undone.')) {
+                const item = button.closest('.order-item');
+                // Keep at least one row
+                if (document.querySelectorAll('.order-item').length > 1) {
+                    item.remove();
+                } else {
+                    alert('At least one product is required!');
+                }
+            }
+        }
+
+        // Dynamically load contacts based on client
+        function syncAgreedCfu(selectElement, onlyIfEmpty = false) {
+            const orderItem = selectElement.closest('.order-item');
+            const agreedCfuInput = orderItem ? orderItem.querySelector('input[name="agreed_cfu"]') : null;
+            if (!agreedCfuInput) {
+                return;
+            }
+
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
+            const standardCfu = selectedOption ? selectedOption.dataset.standardCfu : '';
+            if (!standardCfu) {
+                return;
+            }
+
+            if (onlyIfEmpty && agreedCfuInput.value) {
+                return;
+            }
+
+            agreedCfuInput.value = standardCfu;
+        }
+
+        function bindProductDefaultCfu(orderItem) {
+            const productSelect = orderItem.querySelector('select[name="product_id"]');
+            if (!productSelect) {
+                return;
+            }
+
+            productSelect.addEventListener('change', function() {
+                syncAgreedCfu(productSelect);
+            });
+
+            syncAgreedCfu(productSelect, true);
+        }
+
+        document.querySelectorAll('.order-item').forEach(bindProductDefaultCfu);
+
+        document.getElementById('client_id').addEventListener('change', function() {
+            const clientId = this.value;
+            const contactSelect = document.getElementById('contact_id');
+            contactSelect.innerHTML = '<option value="" disabled selected>Loading...</option>';
+
+            fetch(`/api/clients/${clientId}/contacts`)
+                .then(response => response.json())
+                .then(data => {
+                    contactSelect.innerHTML = '<option value="">(None)</option>';
+                    data.forEach(contact => {
+                        const option = new Option(contact.contact_name, contact.contact_id);
+                        contactSelect.add(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching contacts:', error);
+                    contactSelect.innerHTML = '<option value="">Failed to load contacts</option>';
+                });
+        });
+
+    </script>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% set active_page = "procurement" %}
+
+{% block title %}Edit Purchase Order - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>📝 Edit Purchase Order</h4>
+        <a href="{{ url_for('purchase_orders', company_id=po.company_id) }}" class="btn btn-secondary">Back</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('edit_purchase_order', po_id=po.po_id) }}" method="POST">
+
+                <h5>1. Purchase Order Information</h5>
+                <hr>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="company_id" class="form-label">Purchasing Entity</label>
+                        <select class="form-select" id="company_id" name="company_id" required>
+                            {% for company in companies %}
+                            <option value="{{ company.company_id }}" {% if company.company_id == po.company_id %}selected{% endif %}>{{ company.short_name or company.company_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="supplier_id" class="form-label">Supplier</label>
+                        <select class="form-select" id="supplier_id" name="supplier_id" required>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.supplier_id }}" {% if supplier.supplier_id == po.supplier_id %}selected{% endif %}>{{ supplier.supplier_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="po_no" class="form-label">PO Number</label>
+                        <input type="text" class="form-control" id="po_no" name="po_no" value="{{ po.po_no }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="order_date" class="form-label">Order Date</label>
+                        <input type="date" class="form-control" id="order_date" name="order_date"
+                               value="{{ po.order_date.strftime('%Y-%m-%d') if po.order_date else '' }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="expected_date" class="form-label">Expected Arrival Date</label>
+                        <input type="date" class="form-control" id="expected_date" name="expected_date"
+                               value="{{ po.expected_date.strftime('%Y-%m-%d') if po.expected_date else '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="payment_method" class="form-label">Payment Method</label>
+                        <input type="text" class="form-control" id="payment_method" name="payment_method" value="{{ po.payment_method or '' }}">
+                    </div>
+                    <div class="col-12">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="2">{{ po.notes or '' }}</textarea>
+                    </div>
+                </div>
+
+                <h5 class="mt-4">2. Purchased Material Details</h5>
+                <hr>
+                <div id="po-items">
+                    {% for item in items %}
+                    <div class="row g-3 mb-3 po-item">
+                        <input type="hidden" name="poi_id" value="{{ item.poi_id }}">
+                        <div class="col-md-3">
+                            <label class="form-label">Material</label>
+                            <select class="form-select" name="component_id" required>
+                                {% for component in components %}
+                                <option value="{{ component.component_id }}" data-unit="{{ component.default_unit }}" {% if component.component_id == item.component_id %}selected{% endif %}>
+                                    [{{ component.component_type }}] {{ component.component_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" step="0.001" class="form-control" name="quantity" value="{{ item.quantity }}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Unit Price ($)</label>
+                            <input type="number" step="0.01" class="form-control" name="unit_price" value="{{ item.unit_price }}" required>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Unit</label>
+                            <input type="text" class="form-control" name="unit" value="{{ item.unit }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Spec (optional)</label>
+                            <input type="number" step="any" class="form-control" name="spec_potency" value="{{ item.spec_potency if item.spec_potency is not none else '' }}" placeholder="e.g. 4000">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Spec Unit</label>
+                            <input type="text" class="form-control spec-unit" name="spec_potency_unit" value="{{ item.spec_potency_unit or '' }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Notes</label>
+                            <input type="text" class="form-control" name="item_notes" value="{{ item.notes or '' }}">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">Remove</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn btn-primary" id="add-item">＋ Add Material</button>
+
+                <hr class="mt-4">
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-success btn-lg">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('add-item').addEventListener('click', function () {
+        const itemContainer = document.getElementById('po-items');
+        const template = itemContainer.querySelector('.po-item');
+        const newItem = template.cloneNode(true);
+        newItem.querySelectorAll('input, select').forEach(el => {
+            if (el.name === 'poi_id') {
+                el.value = '';
+            } else if (el.name === 'unit') {
+                el.value = 'kg';
+            } else {
+                el.value = '';
+            }
+        });
+        itemContainer.appendChild(newItem);
+    });
+
+    // After selecting a material, auto-fill the "Spec Unit" field with that material's default unit
+    document.getElementById('po-items').addEventListener('change', function (e) {
+        if (e.target.name !== 'component_id') return;
+        const opt = e.target.options[e.target.selectedIndex];
+        const specUnitInput = e.target.closest('.po-item').querySelector('.spec-unit');
+        if (opt && specUnitInput) {
+            specUnitInput.value = opt.dataset.unit || '';
+        }
+    });
+
+    function removeItem(button) {
+        if (confirm('Are you sure you want to remove this material?') && confirm('Please confirm again to delete. This action cannot be undone.')) {
+            const item = button.closest('.po-item');
+            if (document.querySelectorAll('.po-item').length > 1) {
+                item.remove();
+            } else {
+                alert('At least one material is required!');
+            }
+        }
+    }
+</script>
+{% endblock %}

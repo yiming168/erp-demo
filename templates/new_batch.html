@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% set active_page = "inventory" %}
+
+{% block title %}Production Receipt - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>📦 Production Receipt</h4>
+        <a href="{{ url_for('inventory') }}" class="btn btn-secondary">Back to Inventory</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('new_batch') }}" method="POST">
+                <h5>1. Production Batch Info</h5>
+                <hr>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="product_id" class="form-label">Product *</label>
+                        <select class="form-select" id="product_id" name="product_id" required>
+                            <option value="" disabled selected>Select a product...</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}"
+                                    data-potency-unit="{{ p.potency_unit or 'CFU/g' }}"
+                                    data-product-type="{{ p.product_type or 'Product' }}">
+                                {{ p.chinese_name }} ({{ p.product_type or 'Product' }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Batch No.</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                            <input type="text" class="form-control bg-light fw-semibold"
+                                   value="{{ suggested_batch_no }}" readonly>
+                            <input type="hidden" name="batch_no" value="{{ suggested_batch_no }}">
+                        </div>
+                        <div class="form-text">Assigned automatically by the system; fixed once the batch is saved</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="production_date" class="form-label">Production Date</label>
+                        <input type="date" class="form-control" id="production_date" name="production_date" value="{{ today }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="expiry_date" class="form-label">Expiry Date</label>
+                        <input type="date" class="form-control" id="expiry_date" name="expiry_date">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="quantity_total" class="form-label">Quantity Produced (kg) *</label>
+                        <input type="number" step="0.001" min="0.001" class="form-control"
+                               id="quantity_total" name="quantity_total" required>
+                        <div class="form-text">Available quantity defaults to the produced quantity</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="actual_potency" class="form-label">Measured Potency</label>
+                        <div class="input-group">
+                            <input type="number" step="0.0001" class="form-control"
+                                   id="actual_potency" name="actual_potency" placeholder="Value">
+                            <select class="form-select" id="potency_unit" name="potency_unit" style="max-width:110px">
+                                {% for u in potency_units %}
+                                <option value="{{ u }}" {% if u == 'CFU/g' %}selected{% endif %}>{{ u }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-text" id="potency_hint">Probiotic powder: billion CFU/g; enzymes: U/g; others: content %</div>
+                    </div>
+                    <div class="col-12">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+
+                <h5 class="mt-4">2. Raw Material Consumption</h5>
+                <hr>
+                <div id="formula-reference" class="alert alert-info py-2 mb-3 d-none"></div>
+                <p class="text-muted small">
+                    Optional: record which raw-material batches were consumed in this production run — the system will automatically deduct the corresponding raw-material stock. The formula (if any) is shown for reference only and does not auto-calculate or validate the consumed quantity.
+                </p>
+                <div id="consumption-rows">
+                </div>
+                <button type="button" class="btn btn-primary" id="add-consumption-row">＋ Add Raw Material Consumption</button>
+
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Batch</button>
+                <a href="{{ url_for('inventory') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+<template id="consumption-row-template">
+    <div class="row g-3 mb-3 consumption-row">
+        <div class="col-md-6">
+            <label class="form-label">Raw Material Batch</label>
+            <select class="form-select" name="raw_batch_id">
+                <option value="">Select a raw-material batch...</option>
+                {% for rtype, batches in raw_batches | groupby('component_type') %}
+                <optgroup label="{{ rtype }}">
+                    {% for b in batches %}
+                    <option value="{{ b.batch_id }}">
+                        [{{ b.component_name }}] {{ b.batch_no }} — {{ "%.3f"|format(b.quantity_available|float) }}{{ b.unit or 'kg' }} available
+                        {%- if b.actual_potency %}, potency {{ b.actual_potency }}{{ b.potency_unit }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Quantity Consumed</label>
+            <input type="number" step="0.001" class="form-control" name="quantity_consumed">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Notes</label>
+            <input type="text" class="form-control" name="consumption_notes">
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeConsumptionRow(this)">Remove</button>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const productSelect = document.getElementById('product_id');
+const potencyUnitSelect = document.getElementById('potency_unit');
+const potencyHint = document.getElementById('potency_hint');
+
+const hints = {
+    'Probiotic Powder': 'Enter billion CFU/g (e.g. 200 = 20,000 billion CFU/g)',
+    'Enzyme Preparation': 'Enter enzyme activity in U/g',
+    'Auxiliary Material': 'Enter active ingredient content (%, mg/g, etc.)',
+    'Functional Ingredient': 'Enter active ingredient content (%, mg/g, etc.)',
+};
+
+productSelect.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const unit = opt.dataset.potencyUnit || 'CFU/g';
+    const type = opt.dataset.productType || 'Probiotic Powder';
+    for (let i = 0; i < potencyUnitSelect.options.length; i++) {
+        if (potencyUnitSelect.options[i].value === unit) {
+            potencyUnitSelect.selectedIndex = i;
+            break;
+        }
+    }
+    potencyHint.textContent = hints[type] || 'Enter a potency value';
+    loadFormulaReference(this.value);
+});
+
+const formulaReference = document.getElementById('formula-reference');
+function loadFormulaReference(productId) {
+    if (!productId) {
+        formulaReference.classList.add('d-none');
+        return;
+    }
+    fetch(`/api/products/${productId}/formula`)
+        .then(res => res.json())
+        .then(items => {
+            if (!items || !items.length) {
+                formulaReference.classList.add('d-none');
+                return;
+            }
+            const lines = items.map(fi => `${fi.material_name}: ${fi.target_amount} ${fi.unit}`);
+            formulaReference.innerHTML = '<strong>Formula reference</strong> (target content per gram of finished product, for reference only — does not affect actual consumption quantity):<br>' + lines.join(', ');
+            formulaReference.classList.remove('d-none');
+        })
+        .catch(() => { formulaReference.classList.add('d-none'); });
+}
+
+const consumptionRowsContainer = document.getElementById('consumption-rows');
+const consumptionRowTemplate = document.getElementById('consumption-row-template');
+
+function addConsumptionRow() {
+    const clone = consumptionRowTemplate.content.cloneNode(true);
+    consumptionRowsContainer.appendChild(clone);
+}
+
+function removeConsumptionRow(button) {
+    button.closest('.consumption-row').remove();
+}
+
+document.getElementById('add-consumption-row').addEventListener('click', addConsumptionRow);
+
+// Show one row by default for convenience; the user can remove it down to zero rows (raw-material consumption is entirely optional).
+addConsumptionRow();
+</script>
+{% endblock %}

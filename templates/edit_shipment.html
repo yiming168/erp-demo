@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% set active_page = "shipments" %}
+
+{% block title %}Edit Shipment - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h4 class="mb-3">🚚 Edit Shipment</h4>
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('edit_shipment', shipment_id=shipment.shipment_id) }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label">Order Product</label>
+                        <input type="text" class="form-control" disabled
+                               value="{{ shipment.company_name }} - {{ shipment.contract_no or 'No Order No.' }} - {{ shipment.chinese_name }}">
+                    </div>
+
+                    <div class="col-md-12">
+                        <label for="batch_id" class="form-label">Inventory Batch</label>
+                        {% if shipment.batch_no %}
+                        <div class="alert alert-info py-2 mb-2">
+                            Current batch: <strong>{{ shipment.batch_no }}</strong>
+                            Available: {{ shipment.batch_qty_available }} kg
+                            (Changing the batch will automatically return stock to the old batch and deduct from the new one)
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning py-2 mb-2">
+                            This shipment is historical data with no linked inventory batch. To change the quantity, please select a batch.
+                        </div>
+                        {% endif %}
+                        <select class="form-select" id="batch_id" name="batch_id">
+                            <option value="">Keep current batch ({{ shipment.batch_no or 'none' }})</option>
+                        </select>
+                        <div id="batch-info" class="form-text text-muted mt-1"></div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="shipping_date" class="form-label">Shipping Date *</label>
+                        <input type="date" class="form-control" id="shipping_date" name="shipping_date"
+                               value="{{ shipment.shipping_date.strftime('%Y-%m-%d') }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="quantity_shipped" class="form-label">Quantity Shipped (kg) *</label>
+                        <input type="number" step="0.001" class="form-control" id="quantity_shipped"
+                               name="quantity_shipped" value="{{ shipment.quantity_shipped }}"
+                               max="{{ shipment.max_shippable }}" required>
+                        <div class="form-text">This line item can ship at most {{ shipment.max_shippable }} kg</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="tracking_no" class="form-label">Tracking No.</label>
+                        <input type="text" class="form-control" id="tracking_no" name="tracking_no"
+                               value="{{ shipment.tracking_no or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="logistics_company" class="form-label">Logistics Company</label>
+                        <input type="text" class="form-control" id="logistics_company" name="logistics_company"
+                               value="{{ shipment.logistics_company or '' }}">
+                    </div>
+                    <div class="col-12">
+                        <label for="coa" class="form-label">COA (file path or link)</label>
+                        <input type="text" class="form-control" id="coa" name="coa"
+                               value="{{ shipment.coa or '' }}">
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Changes</button>
+                <a href="{{ url_for('shipments') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const batchSelect = document.getElementById('batch_id');
+const batchInfo = document.getElementById('batch-info');
+const productId = {{ shipment.product_id }};
+
+(async function loadBatches() {
+    try {
+        const res = await fetch(`/api/products/${productId}/batches`);
+        const batches = await res.json();
+        batches.forEach(b => {
+            const exp = b.expiry_date ? ` Expiry:${b.expiry_date}` : '';
+            const potency = b.actual_potency ? ` Potency:${b.actual_potency}${b.potency_unit}` : '';
+            const opt = document.createElement('option');
+            opt.value = b.batch_id;
+            opt.dataset.available = b.quantity_available;
+            opt.textContent = `${b.batch_no}  Available:${b.quantity_available}kg${potency}${exp}`;
+            if (b.batch_id == {{ shipment.batch_id or 'null' }}) opt.selected = true;
+            batchSelect.appendChild(opt);
+        });
+    } catch { /* ignore */ }
+})();
+
+batchSelect.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const avail = opt.dataset.available;
+    batchInfo.textContent = avail ? `Selected batch available: ${avail} kg` : '';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1020 @@
+{% extends "base.html" %}
+{% set active_page = "statistics" %}
+
+{% block title %}Statistics - NorthPeak Biotech ERP{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .summary-card,
+        .chart-card {
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .summary-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .summary-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        .table-responsive {
+            border-radius: 0.5rem;
+        }
+        .chart-wrapper {
+            position: relative;
+            min-height: 340px;
+        }
+        .chart-empty {
+            min-height: 340px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #6c757d;
+            background: linear-gradient(135deg, #f8f9fa, #eef3f8);
+            border-radius: 0.75rem;
+        }
+        .legend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            max-height: 340px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+        .legend-item {
+            width: 100%;
+            border: 1px solid #dee2e6;
+            border-radius: 0.75rem;
+            background: #fff;
+            padding: 0.75rem 0.9rem;
+            text-align: left;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+        .legend-item:hover {
+            border-color: #0d6efd;
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.12);
+            transform: translateY(-1px);
+        }
+        .legend-item.active {
+            border-color: #0d6efd;
+            background: #f0f6ff;
+        }
+        .legend-dot {
+            width: 0.85rem;
+            height: 0.85rem;
+            border-radius: 50%;
+            flex: 0 0 0.85rem;
+        }
+        .legend-name {
+            font-weight: 600;
+        }
+        .legend-meta {
+            font-size: 0.88rem;
+            color: #6c757d;
+        }
+        .table-clickable {
+            cursor: pointer;
+        }
+        @media (max-width: 991.98px) {
+            .chart-wrapper,
+            .chart-empty {
+                min-height: 280px;
+            }
+            .legend-list {
+                max-height: none;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container pb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4 class="mb-1">📊 Sales Statistics</h4>
+                <div class="text-muted">Filter by client name and product to view sales results for matching order items.</div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('statistics') }}" class="row g-3 align-items-end">
+                    <input type="hidden" id="client_id" name="client_id" value="{{ filters.client_id or '' }}">
+                    <input type="hidden" id="chart_mode" name="chart_mode" value="{{ filters.chart_mode or 'company' }}">
+                    <input type="hidden" id="po_chart_mode" name="po_chart_mode" value="{{ filters.po_chart_mode or 'supplier' }}">
+                    <div class="col-md-3">
+                        <label for="year" class="form-label">Year</label>
+                        <select class="form-select" id="year" name="year">
+                            {% for year in years %}
+                            <option value="{{ year }}" {% if filters.year == year %}selected{% endif %}>{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="company_id" class="form-label">Company Entity</label>
+                        <select class="form-select" id="company_id" name="company_id">
+                            {% for company in companies %}
+                            <option value="{{ company.company_id }}" {% if filters.company_id == company.company_id %}selected{% endif %}>
+                                {{ company.short_name or company.company_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="client_name" class="form-label">Client Name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="client_name"
+                            name="client_name"
+                            value="{{ filters.client_name }}"
+                            placeholder="Supports partial matches, e.g.: Summit"
+                        >
+                    </div>
+                    <div class="col-md-2">
+                        <label for="product_id" class="form-label">Product</label>
+                        <select class="form-select" id="product_id" name="product_id">
+                            <option value="">All Products</option>
+                            {% for product in products %}
+                            <option value="{{ product.product_id }}" {% if filters.product_id == product.product_id %}selected{% endif %}>
+                                {{ product.chinese_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-funnel"></i> Generate
+                        </button>
+                        <a href="{{ url_for('statistics') }}" class="btn btn-outline-secondary w-100">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if filters.client_id or filters.product_id %}
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            {% if filters.client_id %}
+            <span class="badge text-bg-primary fs-6">Client drill-down selected</span>
+            {% endif %}
+            {% if filters.product_id %}
+            <span class="badge text-bg-success fs-6">Product drill-down selected</span>
+            {% endif %}
+            <a href="{{ url_for('statistics', year=filters.year, chart_mode=filters.chart_mode) }}" class="btn btn-sm btn-outline-secondary">Clear Drill-down</a>
+        </div>
+        {% endif %}
+
+        <ul class="nav nav-tabs mb-4" id="statsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="sales-tab" data-bs-toggle="tab" data-bs-target="#sales-tab-pane" type="button" role="tab">Sales Statistics</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="procurement-tab" data-bs-toggle="tab" data-bs-target="#procurement-tab-pane" type="button" role="tab">Procurement Statistics</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="statsTabContent">
+        <div class="tab-pane fade show active" id="sales-tab-pane" role="tabpanel">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Total Sales Amount</div>
+                        <div class="summary-value">$ {{ "{:,.2f}".format(summary.total_sales_amount or 0) }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Matching Orders</div>
+                        <div class="summary-value">{{ summary.contract_count or 0 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Matching Clients</div>
+                        <div class="summary-value">{{ summary.client_count or 0 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Total Sales Quantity</div>
+                        <div class="summary-value">{{ "{:,.2f}".format(summary.total_quantity or 0) }} kg</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Average Order Amount</div>
+                        <div class="summary-value">$ {{ "{:,.2f}".format(avg_contract_amount or 0) }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Matching Products</div>
+                        <div class="summary-value">{{ summary.product_count or 0 }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card chart-card mb-4">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="fw-semibold">Sales Share Chart</div>
+                <div class="btn-group" role="group" aria-label="Chart mode">
+                    <button type="button" class="btn btn-outline-primary chart-mode-btn" data-mode="company">By Client</button>
+                    <button type="button" class="btn btn-outline-primary chart-mode-btn" data-mode="product">By Product</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4 align-items-start">
+                    <div class="col-lg-7">
+                        <div id="chartEmptyState" class="chart-empty d-none">
+                            No pie chart data available for the current filters.
+                        </div>
+                        <div id="chartWrapper" class="chart-wrapper">
+                            <canvas id="salesPieChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="text-muted small mb-2">Click the pie chart or an item on the right to view that client's / product's details directly.</div>
+                        <div id="chartLegend" class="legend-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card chart-card mb-4">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="fw-semibold">{{ filters.year }} Monthly Sales</div>
+                <div class="text-muted small">Monthly sales amount, based on order date</div>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="monthlySalesBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">By Client</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Client Name</th>
+                                <th class="text-end">Orders</th>
+                                <th class="text-end">Sales Quantity (kg)</th>
+                                <th class="text-end">Sales Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in client_stats %}
+                            <tr class="table-clickable client-row" data-client-id="{{ row.client_id }}" data-client-name="{{ row.company_name }}">
+                                <td>{{ row.company_name }}</td>
+                                <td class="text-end">{{ row.contract_count }}</td>
+                                <td class="text-end">{{ "{:,.2f}".format(row.total_quantity or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.sales_amount or 0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">No client statistics for the current filters.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">By Product</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Product Name</th>
+                                <th class="text-end">Orders</th>
+                                <th class="text-end">Sales Quantity (kg)</th>
+                                <th class="text-end">Average Unit Price</th>
+                                <th class="text-end">Sales Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in product_stats %}
+                            <tr class="table-clickable product-row" data-product-id="{{ row.product_id }}">
+                                <td>{{ row.chinese_name }}</td>
+                                <td class="text-end">{{ row.contract_count }}</td>
+                                <td class="text-end">{{ "{:,.2f}".format(row.total_quantity or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.avg_unit_price or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.sales_amount or 0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No product statistics for the current filters.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header fw-semibold">Order Details</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Order No.</th>
+                                <th>Entity</th>
+                                <th>Client</th>
+                                <th>Product</th>
+                                <th>Order Date</th>
+                                <th class="text-end">Quantity (kg)</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in contract_details %}
+                            <tr>
+                                <td>#{{ row.contract_id }}</td>
+                                <td>{{ row.contract_no or '-' }}</td>
+                                <td>{{ row.ledger_short_name or '-' }}</td>
+                                <td>{{ row.company_name }}</td>
+                                <td>{{ row.chinese_name }}</td>
+                                <td>{{ row.order_date.strftime('%Y-%m-%d') if row.order_date else '-' }}</td>
+                                <td class="text-end">{{ "{:,.2f}".format(row.quantity or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.unit_price or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.line_amount or 0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-muted">No order details for the current filters.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        </div>
+        <div class="tab-pane fade" id="procurement-tab-pane" role="tabpanel">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Total Purchase Amount</div>
+                        <div class="summary-value">$ {{ "{:,.2f}".format(procurement_summary.total_purchase_amount or 0) }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Purchase Orders</div>
+                        <div class="summary-value">{{ procurement_summary.po_count or 0 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Total Purchase Quantity</div>
+                        <div class="summary-value">{{ "{:,.2f}".format(procurement_summary.total_purchase_quantity or 0) }} kg</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Suppliers</div>
+                        <div class="summary-value">{{ procurement_summary.supplier_count or 0 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Material Types</div>
+                        <div class="summary-value">{{ procurement_summary.material_count or 0 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card summary-card h-100">
+                    <div class="card-body">
+                        <div class="summary-label">Average Purchase Order Amount</div>
+                        <div class="summary-value">$ {{ "{:,.2f}".format(avg_po_amount or 0) }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card chart-card mb-4">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="fw-semibold">Purchase Share Chart</div>
+                <div class="btn-group" role="group" aria-label="PO chart mode">
+                    <button type="button" class="btn btn-outline-primary po-chart-mode-btn" data-mode="supplier">By Supplier</button>
+                    <button type="button" class="btn btn-outline-primary po-chart-mode-btn" data-mode="material">By Material</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4 align-items-start">
+                    <div class="col-lg-7">
+                        <div id="poChartEmptyState" class="chart-empty d-none">
+                            No pie chart data available for the current filters.
+                        </div>
+                        <div id="poChartWrapper" class="chart-wrapper">
+                            <canvas id="purchasePieChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div id="poChartLegend" class="legend-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card chart-card mb-4">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="fw-semibold">{{ filters.year }} Monthly Purchases</div>
+                <div class="text-muted small">Monthly purchase amount, based on order date</div>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="monthlyPurchaseBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">By Supplier</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Supplier Name</th>
+                                <th class="text-end">Purchase Orders</th>
+                                <th class="text-end">Purchase Quantity (kg)</th>
+                                <th class="text-end">Purchase Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in supplier_stats %}
+                            <tr>
+                                <td>{{ row.supplier_name }}</td>
+                                <td class="text-end">{{ row.po_count }}</td>
+                                <td class="text-end">{{ "{:,.2f}".format(row.total_quantity or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.purchase_amount or 0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">No supplier purchase statistics for the current filters.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">By Material</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Material Name</th>
+                                <th class="text-end">Purchase Orders</th>
+                                <th class="text-end">Purchase Quantity (kg)</th>
+                                <th class="text-end">Average Unit Price</th>
+                                <th class="text-end">Purchase Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in material_stats %}
+                            <tr>
+                                <td>{{ row.component_name }}</td>
+                                <td class="text-end">{{ row.po_count }}</td>
+                                <td class="text-end">{{ "{:,.2f}".format(row.total_quantity or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.avg_unit_price or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.purchase_amount or 0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No material purchase statistics for the current filters.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Purchase Order Details</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>PO No.</th>
+                                <th>Entity</th>
+                                <th>Supplier</th>
+                                <th>Material</th>
+                                <th>Order Date</th>
+                                <th class="text-end">Quantity (kg)</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in po_details %}
+                            <tr>
+                                <td><a href="{{ url_for('edit_purchase_order', po_id=row.po_id) }}">{{ row.po_no }}</a></td>
+                                <td>{{ row.ledger_short_name or '-' }}</td>
+                                <td>{{ row.supplier_name }}</td>
+                                <td>{{ row.component_name }}</td>
+                                <td>{{ row.order_date.strftime('%Y-%m-%d') if row.order_date else '-' }}</td>
+                                <td class="text-end">{{ "{:,.2f}".format(row.quantity or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.unit_price or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.line_amount or 0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">No purchase order details for the current filters.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="fw-semibold">Raw Material Inventory Valuation (current snapshot, not affected by filters)</div>
+                <div class="text-muted small">In-stock quantity x purchase unit price; batches without a purchase unit price are valued at $0</div>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="summary-label">Total Raw Material Inventory Value</div>
+                        <div class="summary-value">$ {{ "{:,.2f}".format(inventory_valuation_total or 0) }}</div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Material Name</th>
+                                <th class="text-end">In-Stock Quantity</th>
+                                <th class="text-end">Average Purchase Unit Price</th>
+                                <th class="text-end">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in inventory_valuation %}
+                            <tr>
+                                <td>{{ row.component_name }}</td>
+                                <td class="text-end">{{ "{:,.3f}".format(row.quantity_available or 0) }} {{ row.unit or 'kg' }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.avg_unit_cost or 0) }}</td>
+                                <td class="text-end">$ {{ "{:,.2f}".format(row.inventory_value or 0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">There is no raw material currently in stock.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+        const statisticsForm = document.querySelector('form[action="{{ url_for("statistics") }}"]');
+        const clientIdInput = document.getElementById('client_id');
+        const clientNameInput = document.getElementById('client_name');
+        const productIdInput = document.getElementById('product_id');
+        const chartModeInput = document.getElementById('chart_mode');
+        const chartWrapper = document.getElementById('chartWrapper');
+        const chartEmptyState = document.getElementById('chartEmptyState');
+        const chartLegend = document.getElementById('chartLegend');
+        const chartModeButtons = document.querySelectorAll('.chart-mode-btn');
+        const monthlySalesData = {{ monthly_sales_data | tojson }};
+        const activeFilters = {
+            clientId: {{ (filters.client_id or 0) | tojson }},
+            productId: {{ (filters.product_id or 0) | tojson }}
+        };
+        const datasets = {
+            company: {{ client_chart_data | tojson }},
+            product: {{ product_chart_data | tojson }}
+        };
+        const palette = [
+            '#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#dc3545',
+            '#198754', '#ffc107', '#0dcaf0', '#6610f2', '#d63384',
+            '#6c757d', '#17a2b8', '#e83e8c', '#adb5bd', '#795548'
+        ];
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2
+            }).format(value || 0);
+        }
+
+        function colorsFor(length) {
+            return Array.from({ length }, (_, index) => palette[index % palette.length]);
+        }
+
+        function setChartMode(mode) {
+            chartModeInput.value = mode;
+            chartModeButtons.forEach((button) => {
+                button.classList.toggle('active', button.dataset.mode === mode);
+            });
+        }
+
+        function submitCompanyDrilldown(clientId, clientName) {
+            clientIdInput.value = clientId;
+            clientNameInput.value = clientName || '';
+            statisticsForm.requestSubmit();
+        }
+
+        function submitProductDrilldown(productId) {
+            productIdInput.value = productId;
+            statisticsForm.requestSubmit();
+        }
+
+        let pieChart = null;
+        let monthlyBarChart = null;
+
+        function renderLegend(mode, data, colors, total) {
+            chartLegend.innerHTML = '';
+
+            if (!data.length) {
+                chartLegend.innerHTML = '<div class="text-muted small">No share data available.</div>';
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const percentage = total ? ((item.value / total) * 100).toFixed(1) : '0.0';
+                const isActive = mode === 'company'
+                    ? activeFilters.clientId === item.id
+                    : activeFilters.productId === item.id;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `legend-item ${isActive ? 'active' : ''}`;
+                button.innerHTML = `
+                    <div class="d-flex align-items-start gap-2">
+                        <span class="legend-dot mt-1" style="background:${colors[index]}"></span>
+                        <div class="flex-grow-1">
+                            <div class="legend-name">${item.label}</div>
+                            <div class="legend-meta">${formatCurrency(item.value)} · ${percentage}%</div>
+                        </div>
+                    </div>
+                `;
+                button.addEventListener('click', () => {
+                    if (mode === 'company') {
+                        submitCompanyDrilldown(item.id, item.label);
+                    } else {
+                        submitProductDrilldown(item.id);
+                    }
+                });
+                chartLegend.appendChild(button);
+            });
+        }
+
+        function renderChart(mode) {
+            const data = datasets[mode] || [];
+            const colors = colorsFor(data.length);
+            const total = data.reduce((sum, item) => sum + item.value, 0);
+            setChartMode(mode);
+
+            if (pieChart) {
+                pieChart.destroy();
+            }
+
+            if (!data.length) {
+                chartWrapper.classList.add('d-none');
+                chartEmptyState.classList.remove('d-none');
+                renderLegend(mode, [], [], 0);
+                return;
+            }
+
+            chartWrapper.classList.remove('d-none');
+            chartEmptyState.classList.add('d-none');
+            renderLegend(mode, data, colors, total);
+
+            pieChart = new Chart(document.getElementById('salesPieChart'), {
+                type: 'pie',
+                data: {
+                    labels: data.map((item) => item.label),
+                    datasets: [{
+                        data: data.map((item) => item.value),
+                        backgroundColor: colors,
+                        borderColor: '#ffffff',
+                        borderWidth: 2,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    const value = context.raw || 0;
+                                    const percent = total ? ((value / total) * 100).toFixed(1) : '0.0';
+                                    return `${context.label}: ${formatCurrency(value)} (${percent}%)`;
+                                }
+                            }
+                        }
+                    },
+                    onClick(_, elements) {
+                        if (!elements.length) {
+                            return;
+                        }
+                        const clicked = data[elements[0].index];
+                        if (mode === 'company') {
+                            submitCompanyDrilldown(clicked.id, clicked.label);
+                        } else {
+                            submitProductDrilldown(clicked.id);
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderMonthlyBarChart() {
+            const labels = monthlySalesData.map((item) => item.label);
+            const values = monthlySalesData.map((item) => item.value);
+
+            if (monthlyBarChart) {
+                monthlyBarChart.destroy();
+            }
+
+            monthlyBarChart = new Chart(document.getElementById('monthlySalesBarChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Sales Amount',
+                        data: values,
+                        backgroundColor: '#20c997',
+                        borderRadius: 8,
+                        maxBarThickness: 38
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return `Sales Amount: ${formatCurrency(context.raw || 0)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        chartModeButtons.forEach((button) => {
+            button.addEventListener('click', () => renderChart(button.dataset.mode));
+        });
+
+        clientNameInput.addEventListener('input', () => {
+            clientIdInput.value = '';
+        });
+
+        document.querySelectorAll('.client-row').forEach((row) => {
+            row.addEventListener('click', () => {
+                submitCompanyDrilldown(row.dataset.clientId, row.dataset.clientName);
+            });
+        });
+
+        document.querySelectorAll('.product-row').forEach((row) => {
+            row.addEventListener('click', () => {
+                submitProductDrilldown(row.dataset.productId);
+            });
+        });
+
+        renderChart({{ (filters.chart_mode or 'company') | tojson }});
+        renderMonthlyBarChart();
+
+        // --- Procurement statistics charts ---
+        const poChartModeInput = document.getElementById('po_chart_mode');
+        const poChartWrapper = document.getElementById('poChartWrapper');
+        const poChartEmptyState = document.getElementById('poChartEmptyState');
+        const poChartLegend = document.getElementById('poChartLegend');
+        const poChartModeButtons = document.querySelectorAll('.po-chart-mode-btn');
+        const monthlyPurchaseData = {{ monthly_purchase_data | tojson }};
+        const poDatasets = {
+            supplier: {{ supplier_chart_data | tojson }},
+            material: {{ material_chart_data | tojson }}
+        };
+
+        let purchasePieChart = null;
+        let monthlyPurchaseBarChart = null;
+        let procurementChartsInitialized = false;
+
+        function setPoChartMode(mode) {
+            poChartModeInput.value = mode;
+            poChartModeButtons.forEach((button) => {
+                button.classList.toggle('active', button.dataset.mode === mode);
+            });
+        }
+
+        function renderPoLegend(data, colors, total) {
+            poChartLegend.innerHTML = '';
+            if (!data.length) {
+                poChartLegend.innerHTML = '<div class="text-muted small">No share data available.</div>';
+                return;
+            }
+            data.forEach((item, index) => {
+                const percentage = total ? ((item.value / total) * 100).toFixed(1) : '0.0';
+                const row = document.createElement('div');
+                row.className = 'legend-item';
+                row.innerHTML = `
+                    <div class="d-flex align-items-start gap-2">
+                        <span class="legend-dot mt-1" style="background:${colors[index]}"></span>
+                        <div class="flex-grow-1">
+                            <div class="legend-name">${item.label}</div>
+                            <div class="legend-meta">${formatCurrency(item.value)} · ${percentage}%</div>
+                        </div>
+                    </div>
+                `;
+                poChartLegend.appendChild(row);
+            });
+        }
+
+        function renderPoChart(mode) {
+            const data = poDatasets[mode] || [];
+            const colors = colorsFor(data.length);
+            const total = data.reduce((sum, item) => sum + item.value, 0);
+            setPoChartMode(mode);
+
+            if (purchasePieChart) {
+                purchasePieChart.destroy();
+            }
+
+            if (!data.length) {
+                poChartWrapper.classList.add('d-none');
+                poChartEmptyState.classList.remove('d-none');
+                renderPoLegend([], [], 0);
+                return;
+            }
+
+            poChartWrapper.classList.remove('d-none');
+            poChartEmptyState.classList.add('d-none');
+            renderPoLegend(data, colors, total);
+
+            purchasePieChart = new Chart(document.getElementById('purchasePieChart'), {
+                type: 'pie',
+                data: {
+                    labels: data.map((item) => item.label),
+                    datasets: [{
+                        data: data.map((item) => item.value),
+                        backgroundColor: colors,
+                        borderColor: '#ffffff',
+                        borderWidth: 2,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    const value = context.raw || 0;
+                                    const percent = total ? ((value / total) * 100).toFixed(1) : '0.0';
+                                    return `${context.label}: ${formatCurrency(value)} (${percent}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderMonthlyPurchaseBarChart() {
+            const labels = monthlyPurchaseData.map((item) => item.label);
+            const values = monthlyPurchaseData.map((item) => item.value);
+
+            if (monthlyPurchaseBarChart) {
+                monthlyPurchaseBarChart.destroy();
+            }
+
+            monthlyPurchaseBarChart = new Chart(document.getElementById('monthlyPurchaseBarChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Purchase Amount',
+                        data: values,
+                        backgroundColor: '#fd7e14',
+                        borderRadius: 8,
+                        maxBarThickness: 38
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return `Purchase Amount: ${formatCurrency(context.raw || 0)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        poChartModeButtons.forEach((button) => {
+            button.addEventListener('click', () => renderPoChart(button.dataset.mode));
+        });
+
+        // Chart.js needs the canvas visible to size correctly, so lazily init on first tab show.
+        document.getElementById('procurement-tab').addEventListener('shown.bs.tab', () => {
+            if (procurementChartsInitialized) {
+                return;
+            }
+            procurementChartsInitialized = true;
+            renderPoChart({{ (filters.po_chart_mode or 'supplier') | tojson }});
+            renderMonthlyPurchaseBarChart();
+        });
+    </script>
+{% endblock %}

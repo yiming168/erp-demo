@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% set active_page = "procurement" %}
+
+{% block title %}New Purchase Order - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>📝 New Purchase Order</h4>
+        <a href="{{ url_for('purchase_orders') }}" class="btn btn-secondary">Back</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('new_purchase_order') }}" method="POST">
+
+                <h5>1. Purchase Order Information</h5>
+                <hr>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="company_id" class="form-label">Purchasing Entity</label>
+                        <select class="form-select" id="company_id" name="company_id" required>
+                            {% for company in companies %}
+                            <option value="{{ company.company_id }}" {% if company.company_id == default_company_id %}selected{% endif %}>{{ company.short_name or company.company_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="supplier_id" class="form-label">Supplier</label>
+                        <select class="form-select" id="supplier_id" name="supplier_id" required>
+                            <option value="" disabled selected>Select a supplier...</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.supplier_id }}">{{ supplier.supplier_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">PO Number</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                            <input type="text" class="form-control bg-light fw-semibold" value="{{ suggested_po_no }}" readonly>
+                            <input type="hidden" name="po_no" value="{{ suggested_po_no }}">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="order_date" class="form-label">Order Date</label>
+                        <input type="date" class="form-control" id="order_date" name="order_date" value="{{ today }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="expected_date" class="form-label">Expected Arrival Date</label>
+                        <input type="date" class="form-control" id="expected_date" name="expected_date">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="payment_method" class="form-label">Payment Method</label>
+                        <input type="text" class="form-control" id="payment_method" name="payment_method" placeholder="e.g. Bank Transfer">
+                    </div>
+                    <div class="col-12">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+
+                <h5 class="mt-4">2. Purchased Material Details</h5>
+                <hr>
+                <div id="po-items">
+                    <div class="row g-3 mb-3 po-item">
+                        <div class="col-md-3">
+                            <label class="form-label">Material</label>
+                            <select class="form-select" name="component_id" required>
+                                <option value="" disabled selected>Select a material...</option>
+                                {% for component in components %}
+                                <option value="{{ component.component_id }}" data-unit="{{ component.default_unit }}">
+                                    [{{ component.component_type }}] {{ component.component_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" step="0.001" class="form-control" name="quantity" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Unit Price ($)</label>
+                            <input type="number" step="0.01" class="form-control" name="unit_price" required>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Unit</label>
+                            <input type="text" class="form-control" name="unit" value="kg">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Spec (optional)</label>
+                            <input type="number" step="any" class="form-control" name="spec_potency" placeholder="e.g. 4000">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Spec Unit</label>
+                            <input type="text" class="form-control spec-unit" name="spec_potency_unit">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Notes</label>
+                            <input type="text" class="form-control" name="item_notes">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" id="add-item">＋ Add Material</button>
+
+                <hr class="mt-4">
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-success btn-lg">Submit Purchase Order</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('add-item').addEventListener('click', function () {
+        const itemContainer = document.getElementById('po-items');
+        const newItem = itemContainer.children[0].cloneNode(true);
+        newItem.querySelectorAll('input, select').forEach(el => {
+            if (el.name === 'unit') {
+                el.value = 'kg';
+            } else {
+                el.value = '';
+            }
+        });
+        itemContainer.appendChild(newItem);
+    });
+
+    // After selecting a material, auto-fill the "Spec Unit" field with that material's default unit
+    document.getElementById('po-items').addEventListener('change', function (e) {
+        if (e.target.name !== 'component_id') return;
+        const opt = e.target.options[e.target.selectedIndex];
+        const specUnitInput = e.target.closest('.po-item').querySelector('.spec-unit');
+        if (opt && specUnitInput) {
+            specUnitInput.value = opt.dataset.unit || '';
+        }
+    });
+
+    function removeItem(button) {
+        if (confirm('Are you sure you want to remove this material?')) {
+            const item = button.closest('.po-item');
+            if (document.querySelectorAll('.po-item').length > 1) {
+                item.remove();
+            } else {
+                alert('At least one material is required!');
+            }
+        }
+    }
+</script>
+{% endblock %}

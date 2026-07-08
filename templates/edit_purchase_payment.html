@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% set active_page = "procurement" %}
+
+{% block title %}Edit Purchase Payment - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h4 class="mb-3">Edit Purchase Payment</h4>
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('edit_purchase_payment', payment_id=payment.payment_id) }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Related Purchase Order</label>
+                        <input type="text" class="form-control" value="{{ payment.po_no }} - {{ payment.supplier_name }}" disabled>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="payment_date" class="form-label">Payment Date *</label>
+                        <input type="date" class="form-control" id="payment_date" name="payment_date"
+                               value="{{ payment.payment_date.strftime('%Y-%m-%d') if payment.payment_date else today }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="payment_amount" class="form-label">Payment Amount *</label>
+                        <input type="number" step="0.01" class="form-control" id="payment_amount" name="payment_amount" value="{{ payment.payment_amount }}" required>
+                    </div>
+                    <div class="col-12">
+                        <label for="remark" class="form-label">Notes</label>
+                        <textarea class="form-control" id="remark" name="remark" rows="3">{{ payment.remark or '' }}</textarea>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Changes</button>
+                <a href="{{ url_for('purchase_payments', company_id=payment.company_id) }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

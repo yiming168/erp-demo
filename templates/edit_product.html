@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set active_page = "products" %}
+
+{% block title %}Edit Product - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:640px">
+    <h4><i class="bi bi-pencil-square"></i> Edit Product</h4>
+    <hr>
+
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('edit_product', product_id=product.product_id) }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Product Name *</label>
+                    <input type="text" class="form-control" name="chinese_name" value="{{ product.chinese_name }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Process Type</label>
+                    <select class="form-select" name="process_type">
+                        <option value="Freeze Drying" {% if product.process_type == 'Freeze Drying' %}selected{% endif %}>Freeze Drying</option>
+                        <option value="Spray Drying" {% if product.process_type == 'Spray Drying' %}selected{% endif %}>Spray Drying</option>
+                        <option value="Blending Mix" {% if product.process_type == 'Blending Mix' %}selected{% endif %}>Blending Mix</option>
+                        <option value="Fluidized Bed Drying" {% if product.process_type == 'Fluidized Bed Drying' %}selected{% endif %}>Fluidized Bed Drying</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Description / Notes</label>
+                    <textarea class="form-control" name="description" rows="3">{{ product.description or '' }}</textarea>
+                </div>
+
+                <div class="mt-4">
+                    <a href="{{ url_for('products') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

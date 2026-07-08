@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% set active_page = "raw_materials" %}
+
+{% block title %}Edit Raw Material Batch - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:700px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Edit Raw Material Batch</h4>
+        <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Back</a>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <div class="alert alert-info py-2 mb-3">
+                Material: <strong>{{ batch.material_name }}</strong> ({{ batch.material_type }})
+            </div>
+            <form action="{{ url_for('edit_rm_batch', rm_batch_id=batch.batch_id) }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Batch No. *</label>
+                        <input type="text" class="form-control" name="batch_no" value="{{ batch.batch_no }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Supplier</label>
+                        <select class="form-select" name="supplier_id">
+                            <option value="">No supplier specified</option>
+                            {% for s in suppliers %}
+                            <option value="{{ s.supplier_id }}" {% if batch.supplier_id == s.supplier_id %}selected{% endif %}>{{ s.supplier_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Supplier Batch No.</label>
+                        <input type="text" class="form-control" name="supplier_batch_no" value="{{ batch.supplier_batch_no or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Purchase Unit Price ($)</label>
+                        <input type="number" step="0.01" class="form-control" name="unit_cost" value="{{ batch.unit_cost or '' }}">
+                    </div>
+                    <input type="hidden" name="poi_id" value="{{ batch.poi_id or '' }}">
+                    <div class="col-md-6">
+                        <label class="form-label">Received Date</label>
+                        <input type="date" class="form-control" name="received_date"
+                               value="{{ batch.received_date.strftime('%Y-%m-%d') if batch.received_date else '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Expiry Date</label>
+                        <input type="date" class="form-control" name="expiry_date"
+                               value="{{ batch.expiry_date.strftime('%Y-%m-%d') if batch.expiry_date else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Total Quantity</label>
+                        <input type="number" step="0.001" class="form-control" name="quantity_total"
+                               value="{{ batch.quantity_total }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Available Quantity</label>
+                        <input type="number" step="0.001" class="form-control" name="quantity_available"
+                               value="{{ batch.quantity_available }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Unit</label>
+                        <input type="text" class="form-control" name="unit" value="{{ batch.unit or 'kg' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" name="status">
+                            {% for s in ['available', 'depleted', 'rejected'] %}
+                            <option value="{{ s }}" {% if batch.status == s %}selected{% endif %}>
+                                {{ {'available':'Available','depleted':'Depleted','rejected':'Rejected'}[s] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Measured Potency</label>
+                        <input type="number" step="any" class="form-control" name="actual_potency"
+                               value="{{ batch.actual_potency or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Potency Unit</label>
+                        <input type="text" class="form-control" name="potency_unit" value="{{ batch.potency_unit }}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2">{{ batch.notes or '' }}</textarea>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Changes</button>
+                <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

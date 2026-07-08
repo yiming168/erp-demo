@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% set active_page = "samples" %}
+
+{% block title %}Ship Sample - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-1">Ship Sample: {{ sample.sample_no }}</h4>
+            <div class="text-muted small">
+                {{ sample.ledger_short_name or '-' }} · {{ sample.company_name }}
+                {% if sample.contact_name %} · {{ sample.contact_name }}{% endif %}
+            </div>
+        </div>
+        <a href="{{ url_for('samples') }}" class="btn btn-secondary">Back to Samples</a>
+    </div>
+
+    <form method="POST">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:180px">Sample Product</th>
+                        <th class="text-end">Quantity (kg)</th>
+                        <th>Packaging Spec</th>
+                        <th>Agreed Potency</th>
+                        <th style="min-width:150px">Shipping Date</th>
+                        <th style="min-width:150px">Logistics Company</th>
+                        <th style="min-width:180px">Tracking No.</th>
+                        <th style="min-width:180px">COA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <input type="hidden" name="sample_id" value="{{ item.sample_id }}">
+                            {{ item.chinese_name or '-' }}
+                        </td>
+                        <td class="text-end">{{ "%.3f"|format(item.quantity|float) }}</td>
+                        <td>{{ item.packaging_spec or '-' }}</td>
+                        <td>{{ item.agreed_cfu or '-' }}</td>
+                        <td>
+                            <input type="date" class="form-control form-control-sm" name="shipping_date"
+                                   value="{{ item.shipping_date.strftime('%Y-%m-%d') if item.shipping_date else '' }}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm" name="logistics_company"
+                                   value="{{ item.logistics_company or '' }}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm" name="tracking_no"
+                                   value="{{ item.tracking_no or '' }}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm" name="coa"
+                                   value="{{ item.coa or '' }}">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Shipping Address</label>
+                        <textarea class="form-control" rows="2" readonly>{{ sample.shipping_address or '' }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" rows="2" readonly>{{ sample.notes or '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Save Shipment Info</button>
+            <a href="{{ url_for('samples') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

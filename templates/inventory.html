@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% set active_page = "inventory" %}
+
+{% block title %}Finished Goods Inventory - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-box-seam"></i> Finished Goods Inventory</h4>
+        <a href="{{ url_for('new_batch') }}" class="btn btn-primary">+ Production Receipt</a>
+    </div>
+    <p class="text-muted small mb-3">Click a row to expand and view the inventory batch details for each product.</p>
+
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width:32px"></th>
+                    <th>Product Name</th>
+                    <th class="text-end">Total On Hand (kg)</th>
+                    <th># Batches</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% if not products %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No inventory batches yet</td></tr>
+            {% endif %}
+            {% for p in products %}
+            {% set pbatches = batches_by_product.get(p.product_id, []) %}
+            <tr class="table-hover">
+                <td class="text-center">
+                    {% if pbatches %}
+                    <button class="btn btn-link btn-sm p-0 expand-btn"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#inv-batches-{{ p.product_id }}"
+                            aria-expanded="false">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ p.chinese_name }}</strong></td>
+                <td class="text-end fw-semibold
+                    {% if not p.total_available or p.total_available|float == 0 %}text-danger{% endif %}">
+                    {{ "%.3f"|format(p.total_available|float) if p.total_available else '0.000' }}
+                </td>
+                <td>{{ p.batch_count or 0 }}</td>
+            </tr>
+            {% if pbatches %}
+            <tr class="collapse" id="inv-batches-{{ p.product_id }}">
+                <td colspan="4" class="p-0 border-0">
+                    <div class="bg-light px-4 py-2 border-bottom">
+                        <table class="table table-sm table-bordered mb-0 bg-white">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Batch No.</th>
+                                    <th>Production Date</th>
+                                    <th>Expiry Date</th>
+                                    <th>Actual Potency</th>
+                                    <th class="text-end">Total (kg)</th>
+                                    <th class="text-end">Available (kg)</th>
+                                    <th>Status</th>
+                                    <th>Notes</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for b in pbatches %}
+                            <tr class="{% if b.status == 'depleted' %}text-muted{% elif b.status == 'rejected' %}table-danger{% endif %}">
+                                <td class="fw-semibold small">{{ b.batch_no }}</td>
+                                <td class="small">{{ b.production_date or '-' }}</td>
+                                <td class="small">{{ b.expiry_date or '-' }}</td>
+                                <td class="small">
+                                    {% if b.actual_potency %}{{ b.actual_potency }} {{ b.potency_unit }}
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td class="text-end small">{{ "%.3f"|format(b.quantity_total|float) }}</td>
+                                <td class="text-end small fw-semibold">{{ "%.3f"|format(b.quantity_available|float) }}</td>
+                                <td>
+                                    {% if b.status == 'available' %}<span class="badge bg-success">Available</span>
+                                    {% elif b.status == 'depleted' %}<span class="badge bg-secondary">Depleted</span>
+                                    {% elif b.status == 'rejected' %}<span class="badge bg-danger">Rejected</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">{{ b.notes or '' }}</td>
+                                <td class="text-nowrap">
+                                    <a href="{{ url_for('edit_batch', batch_id=b.batch_id) }}"
+                                       class="btn btn-sm btn-outline-primary py-0">Edit</a>
+                                    <form action="{{ url_for('delete_batch', batch_id=b.batch_id) }}" method="POST"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Confirm delete batch {{ b.batch_no }}?')">
+                                        <button class="btn btn-sm btn-outline-danger py-0">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.expand-btn').forEach(btn => {
+    const target = document.querySelector(btn.dataset.bsTarget);
+    if (!target) return;
+    target.addEventListener('show.bs.collapse', () => {
+        btn.querySelector('i').classList.replace('bi-chevron-right', 'bi-chevron-down');
+    });
+    target.addEventListener('hide.bs.collapse', () => {
+        btn.querySelector('i').classList.replace('bi-chevron-down', 'bi-chevron-right');
+    });
+});
+</script>
+{% endblock %}

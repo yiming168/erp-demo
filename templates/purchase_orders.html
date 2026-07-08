@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% set active_page = "procurement" %}
+
+{% block title %}Purchase Orders - NorthPeak Biotech ERP{% endblock %}
+
+{% block head_extra %}
+<style>
+    body { background-color: #f8f9fa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h4 class="mb-2">Purchase Orders</h4>
+            <div class="btn-group flex-wrap">
+                <a href="{{ url_for('purchase_orders', company_id=selected_company_id) }}" class="btn btn-primary">Purchase Orders</a>
+                <a href="{{ url_for('suppliers') }}" class="btn btn-outline-primary">Suppliers</a>
+                <a href="{{ url_for('purchase_invoices', company_id=selected_company_id) }}" class="btn btn-outline-primary">Purchase Invoices</a>
+                <a href="{{ url_for('purchase_payments', company_id=selected_company_id) }}" class="btn btn-outline-primary">Purchase Payments</a>
+            </div>
+        </div>
+        <a href="{{ url_for('new_purchase_order', company_id=selected_company_id) }}" class="btn btn-success">+ New Purchase Order</a>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" action="{{ url_for('purchase_orders') }}" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="company_id" class="form-label">Purchasing Entity</label>
+                    <select class="form-select" id="company_id" name="company_id" onchange="this.form.submit()">
+                        {% for company in companies %}
+                        <option value="{{ company.company_id }}" {% if selected_company_id == company.company_id %}selected{% endif %}>{{ company.short_name or company.company_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header fw-semibold">Purchase Order List</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>PO No.</th>
+                        <th>Entity</th>
+                        <th>Supplier</th>
+                        <th>Material / Spec</th>
+                        <th>Order Date</th>
+                        <th>Expected Arrival</th>
+                        <th class="text-end">Order Amount</th>
+                        <th class="text-end">Received / Ordered Qty</th>
+                        <th class="text-end">Invoiced</th>
+                        <th class="text-end">Paid</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for po in purchase_orders %}
+                    <tr>
+                        <td><a href="{{ url_for('edit_purchase_order', po_id=po.po_id) }}">{{ po.po_no }}</a></td>
+                        <td>{{ po.ledger_short_name or '-' }}</td>
+                        <td>{{ po.supplier_name }}</td>
+                        <td>{{ po.material_summary or '-' }}</td>
+                        <td>{{ po.order_date.strftime('%Y-%m-%d') if po.order_date else '-' }}</td>
+                        <td>{{ po.expected_date.strftime('%Y-%m-%d') if po.expected_date else '-' }}</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(po.total_amount or 0) }}</td>
+                        <td class="text-end">{{ "%.3f"|format(po.received_qty|float) }} / {{ "%.3f"|format(po.ordered_qty|float) }}</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(po.invoiced_amount or 0) }}</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(po.paid_amount or 0) }}</td>
+                        <td class="text-center text-nowrap">
+                            <a href="{{ url_for('edit_purchase_order', po_id=po.po_id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+                            <form action="{{ url_for('delete_purchase_order', po_id=po.po_id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete purchase order {{ po.po_no }}?') && confirm('Please confirm again to delete. This action cannot be undone.');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="11" class="text-center py-5 text-muted"><h5>No purchase orders yet</h5><p>Click "New Purchase Order" in the top right to create one</p></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

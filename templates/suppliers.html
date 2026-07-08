@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% set active_page = "procurement" %}
+
+{% block title %}Supplier Management - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-truck"></i> Supplier Management</h4>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+            <i class="bi bi-plus-circle"></i> New Supplier
+        </button>
+    </div>
+
+    <div class="btn-group flex-wrap mb-3">
+        <a href="{{ url_for('purchase_orders') }}" class="btn btn-outline-primary">Purchase Orders</a>
+        <a href="{{ url_for('suppliers') }}" class="btn btn-primary">Suppliers</a>
+        <a href="{{ url_for('purchase_invoices') }}" class="btn btn-outline-primary">Purchase Invoices</a>
+        <a href="{{ url_for('purchase_payments') }}" class="btn btn-outline-primary">Purchase Payments</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Supplier Name</th>
+                        <th>Contact</th>
+                        <th>Phone</th>
+                        <th>Tax ID</th>
+                        <th>Address</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in suppliers %}
+                    <tr>
+                        <td><strong>{{ supplier.supplier_name }}</strong></td>
+                        <td>{{ supplier.contact_name or '-' }}</td>
+                        <td>{{ supplier.contact_phone or '-' }}</td>
+                        <td class="small text-muted">{{ supplier.tax_id or '-' }}</td>
+                        <td class="small text-muted">{{ supplier.supplier_address or '-' }}</td>
+                        <td class="text-nowrap">
+                            <a href="{{ url_for('edit_supplier', supplier_id=supplier.supplier_id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil-square"></i> Edit
+                            </a>
+                            <form action="{{ url_for('delete_supplier', supplier_id=supplier.supplier_id) }}" method="POST" class="d-inline"
+                                  onsubmit="return confirm('Are you sure you want to delete supplier {{ supplier.supplier_name }}?') && confirm('Please confirm again to delete. This action cannot be undone.');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">No supplier data yet. Click "New Supplier" in the top right to create one.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Supplier Modal -->
+<div class="modal fade" id="addSupplierModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('add_supplier') }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">New Supplier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="supplier_name" class="form-label">Supplier Name</label>
+                        <input type="text" class="form-control" id="supplier_name" name="supplier_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_name" class="form-label">Contact</label>
+                        <input type="text" class="form-control" id="contact_name" name="contact_name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_phone" class="form-label">Phone</label>
+                        <input type="text" class="form-control" id="contact_phone" name="contact_phone">
+                    </div>
+                    <div class="mb-3">
+                        <label for="tax_id" class="form-label">Tax ID</label>
+                        <input type="text" class="form-control" id="tax_id" name="tax_id">
+                    </div>
+                    <div class="mb-3">
+                        <label for="supplier_address" class="form-label">Address</label>
+                        <input type="text" class="form-control" id="supplier_address" name="supplier_address">
+                    </div>
+                    <div class="mb-3">
+                        <label for="bank_info" class="form-label">Bank / Account No.</label>
+                        <textarea class="form-control" id="bank_info" name="bank_info" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% set active_page = "shipments" %}
+
+{% block title %}New Shipment - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h4 class="mb-3">🚚 New Shipment</h4>
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('new_shipment') }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label for="item_id" class="form-label">Order Product *</label>
+                        <select class="form-select" id="item_id" name="item_id" required>
+                            <option value="">Select a product to ship...</option>
+                            {% for item in items %}
+                            <option value="{{ item.item_id }}" data-product-id="{{ item.product_id }}">
+                                {{ item.ledger_short_name or '-' }} - {{ item.company_name }} -
+                                {{ item.contract_no or 'No Order No.' }} - {{ item.chinese_name }}
+                                (Remaining {{ item.remaining_quantity }} kg)
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label for="batch_id" class="form-label">Inventory Batch <span class="text-muted small">(can be left blank for now and linked once inventory is entered)</span></label>
+                        <select class="form-select" id="batch_id" name="batch_id">
+                            <option value="">No batch linked (no inventory data)</option>
+                        </select>
+                        <div id="batch-info" class="form-text text-muted mt-1"></div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="shipping_date" class="form-label">Shipping Date *</label>
+                        <input type="date" class="form-control" id="shipping_date" name="shipping_date"
+                               required value="{{ today }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="quantity_shipped" class="form-label">Quantity Shipped (kg) *</label>
+                        <input type="number" step="0.001" class="form-control" id="quantity_shipped"
+                               name="quantity_shipped" required>
+                        <div id="qty-hint" class="form-text text-muted"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="tracking_no" class="form-label">Tracking No.</label>
+                        <input type="text" class="form-control" id="tracking_no" name="tracking_no">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="logistics_company" class="form-label">Logistics Company</label>
+                        <input type="text" class="form-control" id="logistics_company" name="logistics_company">
+                    </div>
+                    <div class="col-12">
+                        <label for="coa" class="form-label">COA (file path or link)</label>
+                        <input type="text" class="form-control" id="coa" name="coa">
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save Shipment</button>
+                <a href="{{ url_for('shipments') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const itemSelect = document.getElementById('item_id');
+const batchSelect = document.getElementById('batch_id');
+const batchInfo = document.getElementById('batch-info');
+const qtyHint = document.getElementById('qty-hint');
+
+itemSelect.addEventListener('change', async function() {
+    const opt = this.options[this.selectedIndex];
+    const productId = opt.dataset.productId;
+    batchSelect.innerHTML = '<option value="">Loading batches...</option>';
+    batchInfo.textContent = '';
+    qtyHint.textContent = '';
+    if (!productId) return;
+    try {
+        const res = await fetch(`/api/products/${productId}/batches`);
+        const batches = await res.json();
+        if (!batches.length) {
+            batchSelect.innerHTML = '<option value="">No available inventory batches for this product</option>';
+            return;
+        }
+        batchSelect.innerHTML = '<option value="">Select a batch...</option>';
+        batches.forEach(b => {
+            const exp = b.expiry_date ? ` Expiry:${b.expiry_date}` : '';
+            const potency = b.actual_potency ? ` Potency:${b.actual_potency}${b.potency_unit}` : '';
+            batchSelect.innerHTML += `<option value="${b.batch_id}" data-available="${b.quantity_available}">
+                ${b.batch_no}  Available:${b.quantity_available}kg${potency}${exp}
+            </option>`;
+        });
+    } catch {
+        batchSelect.innerHTML = '<option value="">Failed to load, please refresh and try again</option>';
+    }
+});
+
+batchSelect.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const avail = opt.dataset.available;
+    if (avail) {
+        batchInfo.textContent = `Current batch available: ${avail} kg`;
+        qtyHint.textContent = `Maximum shippable: ${avail} kg`;
+        document.getElementById('quantity_shipped').max = avail;
+    } else {
+        batchInfo.textContent = '';
+        qtyHint.textContent = '';
+        document.getElementById('quantity_shipped').removeAttribute('max');
+    }
+});
+</script>
+{% endblock %}

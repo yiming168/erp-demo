@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% set active_page = "procurement" %}
+
+{% block title %}Purchase Payments - NorthPeak Biotech ERP{% endblock %}
+
+{% block head_extra %}
+<style>
+    body { background-color: #f8f9fa; }
+    .summary-card { border: none; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h4 class="mb-2">Purchase Payments</h4>
+            <div class="btn-group flex-wrap">
+                <a href="{{ url_for('purchase_orders', company_id=selected_company_id) }}" class="btn btn-outline-primary">Purchase Orders</a>
+                <a href="{{ url_for('suppliers') }}" class="btn btn-outline-primary">Suppliers</a>
+                <a href="{{ url_for('purchase_invoices', company_id=selected_company_id) }}" class="btn btn-outline-primary">Purchase Invoices</a>
+                <a href="{{ url_for('purchase_payments', company_id=selected_company_id) }}" class="btn btn-primary">Purchase Payments</a>
+            </div>
+        </div>
+        <a href="{{ url_for('new_purchase_payment', company_id=selected_company_id) }}" class="btn btn-success">+ New Payment Record</a>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" action="{{ url_for('purchase_payments') }}" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="company_id" class="form-label">Purchasing Entity</label>
+                    <select class="form-select" id="company_id" name="company_id" onchange="this.form.submit()">
+                        {% for company in companies %}
+                        <option value="{{ company.company_id }}" {% if selected_company_id == company.company_id %}selected{% endif %}>{{ company.short_name or company.company_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card summary-card h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Unpaid Purchase Orders</div>
+                    <div class="fs-3 fw-bold">{{ unpaid_pos|length }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card summary-card h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Unpaid Amount</div>
+                    <div class="fs-3 fw-bold">$ {{ "{:,.2f}".format(unpaid_pos|sum(attribute='outstanding_amount') or 0) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Unpaid Purchase Orders</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>PO No.</th>
+                        <th>Entity</th>
+                        <th>Supplier</th>
+                        <th>Order Date</th>
+                        <th class="text-end">Order Amount</th>
+                        <th class="text-end">Paid</th>
+                        <th class="text-end">Unpaid</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for po in unpaid_pos %}
+                    <tr>
+                        <td><a href="{{ url_for('edit_purchase_order', po_id=po.po_id) }}">{{ po.po_no }}</a></td>
+                        <td>{{ po.ledger_short_name or '-' }}</td>
+                        <td>{{ po.supplier_name }}</td>
+                        <td>{{ po.order_date.strftime('%Y-%m-%d') if po.order_date else '-' }}</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(po.total_amount or 0) }}</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(po.paid_amount or 0) }}</td>
+                        <td class="text-end fw-semibold text-danger">$ {{ "{:,.2f}".format(po.outstanding_amount or 0) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center py-4 text-muted">There are no unpaid purchase orders.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header fw-semibold">Payment Records</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>PO No.</th>
+                        <th>Entity</th>
+                        <th>Supplier</th>
+                        <th>Payment Date</th>
+                        <th class="text-end">Payment Amount</th>
+                        <th>Notes</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td><a href="{{ url_for('edit_purchase_order', po_id=payment.po_id) }}">{{ payment.po_no }}</a></td>
+                        <td>{{ payment.ledger_short_name or '-' }}</td>
+                        <td>{{ payment.supplier_name }}</td>
+                        <td>{{ payment.payment_date.strftime('%Y-%m-%d') if payment.payment_date else '-' }}</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(payment.payment_amount or 0) }}</td>
+                        <td>{{ payment.remark or '-' }}</td>
+                        <td class="text-center">
+                            <a href="{{ url_for('edit_purchase_payment', payment_id=payment.payment_id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+                            <form action="{{ url_for('delete_purchase_payment', payment_id=payment.payment_id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this payment record?') && confirm('Please confirm again to delete. This action cannot be undone.');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center py-5 text-muted"><h5>No payment records yet</h5><p>Click "New Payment" in the top right to create one</p></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

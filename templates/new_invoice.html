@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% set active_page = "finance" %}
+
+{% block title %}New Invoice - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+        <h4 class="mb-3">New Invoice</h4>
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ url_for('new_invoice') }}" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="contract_id" class="form-label">Related Order *</label>
+                            <select class="form-select" id="contract_id" name="contract_id" required>
+                                <option value="">Select an order...</option>
+                                {% for contract in contracts %}
+                                <option value="{{ contract.contract_id }}" data-amount="{{ contract.outstanding_amount if contract.outstanding_amount is not none else contract.total_amount or 0 }}">
+                                    #{{ contract.contract_id }} - {{ contract.ledger_short_name or '-' }} - {{ contract.contract_no or 'No Contract No.' }} ({{ contract.company_name }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="invoice_date" class="form-label">Invoice Date *</label>
+                            <input type="date" class="form-control" id="invoice_date" name="invoice_date" value="{{ today }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="invoice_amount" class="form-label">Invoice Amount *</label>
+                            <input type="number" step="0.01" class="form-control" id="invoice_amount" name="invoice_amount" required>
+                            <div class="form-text">Selecting an order will auto-fill the outstanding invoice amount, which you can also edit manually.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="invoice_no" class="form-label">Invoice No.</label>
+                            <input type="text" class="form-control" id="invoice_no" name="invoice_no">
+                        </div>
+                        <div class="col-12">
+                            <label for="remark" class="form-label">Notes</label>
+                            <textarea class="form-control" id="remark" name="remark" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <button class="btn btn-primary" type="submit">Save Invoice</button>
+                    <a href="{{ url_for('invoices', company_id=selected_company_id) }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+        const invoiceContractSelect = document.getElementById('contract_id');
+        const invoiceAmountInput = document.getElementById('invoice_amount');
+        invoiceContractSelect.addEventListener('change', () => {
+            const option = invoiceContractSelect.options[invoiceContractSelect.selectedIndex];
+            const amount = option ? option.dataset.amount : '';
+            if (amount !== undefined && amount !== '') {
+                invoiceAmountInput.value = Number(amount).toFixed(2);
+            }
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% set active_page = "raw_materials" %}
+
+{% block title %}Receive Raw Material - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:720px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Receive Raw Material</h4>
+        <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Back</a>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('new_rm_batch') }}" method="POST">
+                <div class="row g-3">
+
+                    <!-- Material selection -->
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Material *</label>
+                        <select class="form-select" name="material_id" id="material_select" required>
+                            <option value="" disabled selected>Select from the component catalog...</option>
+                            {% for m in materials %}
+                            <option value="{{ m.material_id }}"
+                                    data-punit="{{ m.potency_unit }}"
+                                    data-type="{{ m.material_type }}"
+                                    {% if preselect and m.material_id|string == preselect %}selected{% endif %}>
+                                [{{ m.material_type }}] {{ m.material_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">The component catalog is maintained under "Raw Materials"; the potency unit is auto-filled once selected</div>
+                    </div>
+
+                    <!-- Dates -->
+                    <div class="col-md-6">
+                        <label class="form-label">Received Date *</label>
+                        <input type="date" class="form-control" name="received_date" value="{{ today }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Expiry Date</label>
+                        <input type="date" class="form-control" name="expiry_date">
+                    </div>
+
+                    <!-- Measured potency -->
+                    <div class="col-md-5">
+                        <label class="form-label">Measured Potency</label>
+                        <input type="number" step="any" class="form-control" name="actual_potency" id="actual_potency"
+                               placeholder="Enter the measured potency for this batch">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Potency Unit</label>
+                        <input type="text" class="form-control" name="potency_unit" id="potency_unit"
+                               value="billion CFU/g">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Quantity Received *</label>
+                        <input type="number" step="0.001" class="form-control" name="quantity_total" required>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">Unit</label>
+                        <input type="text" class="form-control" name="unit" id="unit" value="kg">
+                    </div>
+
+                    <!-- Batch info -->
+                    <div class="col-md-4">
+                        <label class="form-label">Batch No.</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                            <input type="text" class="form-control bg-light fw-semibold"
+                                   value="{{ suggested_batch_no }}" readonly>
+                            <input type="hidden" name="batch_no" value="{{ suggested_batch_no }}">
+                        </div>
+                        <div class="form-text">Assigned automatically by the system; fixed once received</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Supplier</label>
+                        <select class="form-select" name="supplier_id" id="supplier_select">
+                            <option value="">No supplier specified</option>
+                            {% for s in suppliers %}
+                            <option value="{{ s.supplier_id }}">{{ s.supplier_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Supplier Batch No.</label>
+                        <input type="text" class="form-control" name="supplier_batch_no">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Linked Purchase Order Item</label>
+                        <select class="form-select" name="poi_id" id="poi_select">
+                            <option value="">Select a material and supplier first</option>
+                        </select>
+                        <div class="form-text">Only shows open purchase-order items for this material from this supplier</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Purchase Unit Price ($/kg)</label>
+                        <input type="number" step="0.01" class="form-control" name="unit_cost" id="unit_cost">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Confirm Receipt</button>
+                <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function onMaterialChange() {
+    const sel = document.getElementById('material_select');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    const punit   = opt.dataset.punit   || 'billion CFU/g';
+    const mtype   = opt.dataset.type    || '';
+
+    document.getElementById('potency_unit').value = punit;
+
+    const potencyInput = document.getElementById('actual_potency');
+    if (mtype === 'Excipient') {
+        potencyInput.placeholder = 'Optional for excipients';
+    } else {
+        potencyInput.placeholder = 'Enter the measured potency';
+    }
+}
+document.getElementById('material_select').addEventListener('change', onMaterialChange);
+// Auto-trigger if pre-selected via URL param
+if (document.getElementById('material_select').value) onMaterialChange();
+
+function refreshOpenPoItems() {
+    const componentId = document.getElementById('material_select').value;
+    const supplierId = document.getElementById('supplier_select').value;
+    const poiSelect = document.getElementById('poi_select');
+    if (!componentId || !supplierId) {
+        poiSelect.innerHTML = '<option value="">Select a material and supplier first</option>';
+        return;
+    }
+    poiSelect.innerHTML = '<option value="">Loading...</option>';
+    fetch(`/api/purchase-order-items/open?component_id=${componentId}&supplier_id=${supplierId}`)
+        .then(response => response.json())
+        .then(data => {
+            poiSelect.innerHTML = '<option value="">Do not link to a purchase order</option>';
+            data.forEach(item => {
+                const label = `${item.po_no} - ${item.remaining_qty.toFixed(3)}${item.unit} remaining - $${item.unit_price}/unit`;
+                const option = new Option(label, item.poi_id);
+                option.dataset.unitPrice = item.unit_price;
+                option.dataset.remainingQty = item.remaining_qty;
+                option.dataset.unit = item.unit;
+                poiSelect.add(option);
+            });
+        })
+        .catch(() => {
+            poiSelect.innerHTML = '<option value="">Failed to load purchase order items</option>';
+        });
+}
+document.getElementById('material_select').addEventListener('change', refreshOpenPoItems);
+document.getElementById('supplier_select').addEventListener('change', refreshOpenPoItems);
+
+document.getElementById('poi_select').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (!opt || !opt.value) return;
+    if (opt.dataset.unitPrice) {
+        document.getElementById('unit_cost').value = opt.dataset.unitPrice;
+    }
+    const qtyInput = document.querySelector('input[name="quantity_total"]');
+    if (opt.dataset.remainingQty && qtyInput && !qtyInput.value) {
+        qtyInput.value = opt.dataset.remainingQty;
+    }
+    if (opt.dataset.unit) {
+        document.getElementById('unit').value = opt.dataset.unit;
+    }
+});
+</script>
+{% endblock %}

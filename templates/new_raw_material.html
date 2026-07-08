@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set active_page = "raw_materials" %}
+
+{% block title %}New Component - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:640px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>New Component</h4>
+        <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Back</a>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <form action="{{ url_for('new_raw_material') }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Component Name *</label>
+                        <input type="text" class="form-control" name="material_name" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Type *</label>
+                        <select class="form-select" name="material_type" id="material_type">
+                            <option value="Strain">Strain</option>
+                            <option value="Enzyme">Enzyme</option>
+                            <option value="Excipient">Excipient</option>
+                            <option value="Functional">Functional</option>
+                            <option value="Blend">Blend</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Default Unit <span class="text-muted small" id="unit-hint">(auto-filled for formulas & receiving)</span></label>
+                        <input type="text" class="form-control" name="default_unit" id="default_unit" value="billion CFU/g">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <button class="btn btn-primary" type="submit">Save</button>
+                <a href="{{ url_for('raw_materials') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const typeSelect = document.getElementById('material_type');
+const defaultUnit = document.getElementById('default_unit');
+const unitHint = document.getElementById('unit-hint');
+const hints = { 'Strain': 'billion CFU/g', 'Enzyme': 'U/g', 'Excipient': 'g/kg', 'Functional': '%', 'Blend': '', 'Other': '' };
+typeSelect.addEventListener('change', function() {
+    const u = hints[this.value] || '';
+    defaultUnit.value = u;
+    unitHint.textContent = u ? `(${u})` : '(optional)';
+});
+</script>
+{% endblock %}

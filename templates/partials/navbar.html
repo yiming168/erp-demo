@@ -1,0 +1,52 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">🧬 NorthPeak Biotech ERP</a>
+
+        <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#mainNavbar"
+                aria-controls="mainNavbar"
+                aria-expanded="false"
+                aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNavbar">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">Orders</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'clients' %}active{% endif %}" href="{{ url_for('clients') }}">Clients</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'products' %}active{% endif %}" href="{{ url_for('products') }}">Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'shipments' %}active{% endif %}" href="{{ url_for('shipments') }}">Shipments</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'inventory' %}active{% endif %}" href="{{ url_for('inventory') }}">Finished Goods</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'raw_materials' %}active{% endif %}" href="{{ url_for('raw_materials') }}">Raw Materials</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'procurement' %}active{% endif %}" href="{{ url_for('purchase_orders') }}">Procurement</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'samples' %}active{% endif %}" href="{{ url_for('samples') }}">Samples</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'finance' %}active{% endif %}" href="{{ url_for('receipts') }}">Finance</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'statistics' %}active{% endif %}" href="{{ url_for('statistics') }}">Statistics</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if active_page == 'ai_query' %}active{% endif %}" href="{{ url_for('ai_query') }}">Smart Query</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

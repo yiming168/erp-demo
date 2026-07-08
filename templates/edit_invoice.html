@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% set active_page = "finance" %}
+
+{% block title %}Edit Invoice - NorthPeak Biotech ERP{% endblock %}
+
+{% block content %}
+<div class="container">
+        <h4 class="mb-3">Edit Invoice</h4>
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ url_for('edit_invoice', invoice_id=invoice.invoice_id) }}" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Related Order</label>
+                            <input type="text" class="form-control" value="#{{ invoice.contract_id }} - {{ invoice.contract_no or 'No Contract No.' }} ({{ invoice.company_name }})" disabled>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="invoice_date" class="form-label">Invoice Date *</label>
+                            <input type="date" class="form-control" id="invoice_date" name="invoice_date" value="{{ invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else today }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="invoice_amount" class="form-label">Invoice Amount *</label>
+                            <input type="number" step="0.01" class="form-control" id="invoice_amount" name="invoice_amount" value="{{ invoice.invoice_amount }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="invoice_no" class="form-label">Invoice No.</label>
+                            <input type="text" class="form-control" id="invoice_no" name="invoice_no" value="{{ invoice.invoice_no or '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label for="remark" class="form-label">Notes</label>
+                            <textarea class="form-control" id="remark" name="remark" rows="3">{{ invoice.remark or '' }}</textarea>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <button class="btn btn-primary" type="submit">Save Changes</button>
+                    <a href="{{ url_for('invoices', company_id=invoice.company_id) }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
